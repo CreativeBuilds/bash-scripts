@@ -1,15 +1,54 @@
 #!/bin/bash
 
+# Function to display help message
+show_help() {
+    cat << EOF
+Usage: targon [OPTIONS] [PROMPT]
+
+Send prompts to the Targon AI API and stream responses.
+
+Options:
+    -M, --model MODEL       Specify the model to use (default: deepseek-ai/DeepSeek-V3)
+    -T, --temp TEMP        Set temperature (0.0-1.0, default: 0.7)
+    -F, --file FILE        Read prompt from file
+    -O, --out-file FILE    Write output to file (absolute or relative path)
+    -W, --wipe            Wipe output file before writing
+    -I, --include-prompt  Include prompt in output file
+    --max_tokens NUM      Set maximum tokens (default: 256)
+    --top_p VALUE        Set top_p value (0.0-1.0, default: 0.1)
+    --show, --show-prompt Show prompt before response
+    -h, --help           Show this help message
+
+Examples:
+    targon "What is the meaning of life?"
+    targon -F prompt.txt -O output.txt
+    targon -M "other-model" -T 0.8 "Tell me a story"
+    targon -F input.txt -O output.txt -w -i "Additional text"
+EOF
+    exit 0
+}
+
 # Default values
 MODEL="deepseek-ai/DeepSeek-V3"
 TEMP=0.7
 MAX_TOKENS=256
 TOP_P=0.1
 SHOW_PROMPT=false
+OUT_FILE=""
+FILE_PROMPT=""
+ADDITIONAL_PROMPT=""
+WIPE_FILE=false
+INCLUDE_PROMPT=false
+
+# Show help if no arguments provided
+[ $# -eq 0 ] && show_help
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -h|--help)
+            show_help
+            ;;
         -M|--model)
             MODEL="$2"
             shift 2
@@ -28,13 +67,30 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: File '$2' not found" >&2
                 exit 1
             fi
-            # Read file and remove trailing newlines
-            PROMPT="$(cat "$2" | perl -pe 'chomp if eof')"
+            FILE_PROMPT="$(cat "$2" | perl -pe 'chomp if eof')"
             if [ $? -ne 0 ]; then
                 echo "Error: Failed to read file '$2'" >&2
                 exit 1
             fi
             shift 2
+            ;;
+        -O|--out-file)
+            # If path is absolute, use it directly
+            if [[ "$2" = /* ]]; then
+                OUT_FILE="$2"
+            else
+                # Otherwise make it relative to PWD
+                OUT_FILE="$PWD/$2"
+            fi
+            shift 2
+            ;;
+        -W|--wipe)
+            WIPE_FILE=true
+            shift
+            ;;
+        -I|--include-prompt)
+            INCLUDE_PROMPT=true
+            shift
             ;;
         --max_tokens)
             if [[ $2 =~ ^[0-9]+$ ]]; then
@@ -63,12 +119,20 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
         *)
-            # Everything else becomes part of the prompt
-            PROMPT="$*"
+            ADDITIONAL_PROMPT="$*"
             break
             ;;
     esac
 done
+
+# Combine prompts if both file and additional prompt are provided
+if [ -n "$FILE_PROMPT" ] && [ -n "$ADDITIONAL_PROMPT" ]; then
+    PROMPT="${FILE_PROMPT}${ADDITIONAL_PROMPT}"
+elif [ -n "$FILE_PROMPT" ]; then
+    PROMPT="$FILE_PROMPT"
+else
+    PROMPT="$ADDITIONAL_PROMPT"
+fi
 
 if [ -z "$PROMPT" ]; then
     echo "Error: No prompt provided" >&2
@@ -78,6 +142,21 @@ fi
 # Show prompt if flag is set (write to stderr so it doesn't get piped)
 if [ "$SHOW_PROMPT" = true ]; then
     printf "Prompt from file:\n%s\n\nResponse:\n" "$PROMPT" >&2
+fi
+
+# If output file is specified, handle file creation/wiping
+if [ -n "$OUT_FILE" ]; then
+    # Create directory if it doesn't exist
+    mkdir -p "$(dirname "$OUT_FILE")"
+    # Wipe file if flag is set
+    if [ "$WIPE_FILE" = true ]; then
+        : > "$OUT_FILE"
+    fi
+    # Include prompt if flag is set
+    if [ "$INCLUDE_PROMPT" = true ]; then
+        # Convert \n to actual newlines in prompt
+        printf '%b' "$PROMPT" >> "$OUT_FILE"
+    fi
 fi
 
 # Prepare the JSON payload
@@ -113,7 +192,13 @@ curl -s https://api.targon.com/v1/completions \
         
         # Extract the text content using grep and sed
         if [[ "$line" =~ \"text\":\"([^\"]*)\" ]]; then
-            printf '%b' "${BASH_REMATCH[1]}"
+            text="${BASH_REMATCH[1]}"
+            # Convert \n to actual newlines for both stdout and file
+            text_with_newlines=$(printf '%b' "$text")
+            printf '%s' "$text_with_newlines"
+            if [ -n "$OUT_FILE" ]; then
+                printf '%s' "$text_with_newlines" >> "$OUT_FILE"
+            fi
         fi
 done
 
