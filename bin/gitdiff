@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# Get the script's directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Get the git diff
+DIFF=$(git diff)
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to get git diff" >&2
+    exit 1
+fi
+if [ -z "$DIFF" ]; then
+    echo "Error: No git diff changes found" >&2
+    exit 1
+fi
+
+# If no diff, check for untracked files
+if [ -z "$DIFF" ]; then
+    UNTRACKED=$(git ls-files --others --exclude-standard)
+    if [ -n "$UNTRACKED" ]; then
+        echo "Untracked files found:" >&2
+        echo "$UNTRACKED" >&2
+        exit 1
+    fi
+    echo "No changes to commit" >&2
+    exit 0
+fi
+
+# Pass the diff to targon with the gitdiff prompt using relative path
+# Get the prompt text
+PROMPT=$(cat "${SCRIPT_DIR}/../.prompts/gitdiff.txt")
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to read prompt file" >&2
+    exit 1
+fi
+
+# Combine prompt with diff and add assistant tag
+FULL_PROMPT="${PROMPT}${DIFF}\n<|assistant|>\`\`\`"
+
+# Pass to targon
+targon "$FULL_PROMPT" | sed 's/```.*$//'

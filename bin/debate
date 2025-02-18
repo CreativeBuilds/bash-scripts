@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# Get the script's directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Create temporary system prompts for each agent
+TMP_DIR=$(mktemp -d)
+AGENT1_PROMPT="${TMP_DIR}/agent1.txt"
+AGENT2_PROMPT="${TMP_DIR}/agent2.txt"
+
+# Create Agent 1's system prompt
+cat > "$AGENT1_PROMPT" << EOF
+<|system|>You are Agent 1, a friendly but opinionated AI. You love to debate topics but always remain respectful.
+Your responses should be brief and to the point. You should always ask a follow-up question to keep the conversation going.
+<|assistant|>
+EOF
+
+# Create Agent 2's system prompt
+cat > "$AGENT2_PROMPT" << EOF
+<|system|>You are Agent 2, a thoughtful and analytical AI. You enjoy exploring different perspectives.
+Your responses should be concise but insightful. Always engage with the previous point before adding your own view.
+<|assistant|>
+EOF
+
+# Function to clean up temp files
+cleanup() {
+    rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+
+# Initialize conversation history for both agents
+HISTORY1="$(cat "$AGENT1_PROMPT")"
+HISTORY2="$(cat "$AGENT2_PROMPT")"
+
+# Number of exchanges to have
+EXCHANGES=${1:-5}
+
+# Initial topic from command line or default
+TOPIC=${2:-"the impact of artificial intelligence on society"}
+
+# Start the conversation
+echo "Starting debate about: $TOPIC"
+echo
+
+# Function to clean response text
+clean_response() {
+    # Remove escaped characters except newlines and normalize whitespace
+    echo "$1" | sed 's/\\\([^n]\)/\1/g' | sed 's/\s\+/ /g'
+}
+
+# Agent 1 starts
+HISTORY1="${HISTORY1}\n<|user|>Let's discuss ${TOPIC}. Please start the conversation.\n<|assistant|>"
+RESPONSE1=$(targon "$HISTORY1")
+RESPONSE1=$(clean_response "$RESPONSE1")
+echo -e "\033[1;31mAgent 1:\033[0m $RESPONSE1"
+HISTORY1="${HISTORY1}${RESPONSE1}"
+
+# Main conversation loop
+for ((i=1; i<=$EXCHANGES; i++)); do
+    echo
+    
+    # Agent 2's turn
+    HISTORY2="${HISTORY2}\n<|user|>${RESPONSE1}\n<|assistant|>"
+    RESPONSE2=$(targon "$HISTORY2")
+    RESPONSE2=$(clean_response "$RESPONSE2")
+    echo -e "\033[1;34mAgent 2:\033[0m $RESPONSE2"
+    HISTORY2="${HISTORY2}${RESPONSE2}"
+    
+    echo
+    sleep 1
+    
+    # Agent 1's turn
+    HISTORY1="${HISTORY1}\n<|user|>${RESPONSE2}\n<|assistant|>"
+    RESPONSE1=$(targon "$HISTORY1")
+    RESPONSE1=$(clean_response "$RESPONSE1")
+    echo -e "\033[1;31mAgent 1:\033[0m $RESPONSE1"
+    HISTORY1="${HISTORY1}${RESPONSE1}"
+    
+    sleep 1
+done 

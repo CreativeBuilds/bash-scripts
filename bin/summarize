@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Initialize summary
+SUMMARY=""
+CURRENT_ROUND=""
+ROUND_NUM=0
+
+# Function to get summary from targon
+get_summary() {
+    local round="$1"
+    local summary="$2"
+    local round_num="$3"
+    local prompt="<|system|>You are a debate summarizer focused on extracting key philosophical insights and practical implications. Your summaries should:
+1. Identify the main philosophical arguments and concepts
+2. Highlight any practical real-world applications discussed
+3. Note any significant areas of agreement or disagreement
+4. Track the logical progression of ideas
+5. Emphasize novel or particularly insightful perspectives
+
+Format your response with 'ROUND ${round_num}' followed by a concise, objective summary.
+<|user|>Previous summary of the debate:
+${summary}
+
+New content from Round ${round_num}:
+${round}
+
+Please provide a concise summary of Round ${round_num}, starting with 'ROUND ${round_num}' on its own line.
+<|assistant|>
+ROUND ${round_num}
+In this round,"
+    
+    targon "$prompt"
+}
+
+# Read input line by line
+while IFS= read -r line; do
+    # Echo the original line to maintain the pipe
+    echo "$line"
+    
+    # If line is empty, skip
+    [ -z "$line" ] && continue
+    
+    # Add line to current round
+    CURRENT_ROUND="${CURRENT_ROUND}${line}\n"
+    
+    # If we see Agent 1 after Agent 2, it's end of round
+    if [[ "$line" =~ ^$'\033'\[1\;31mAgent\ 1: ]]; then
+        if [[ "$CURRENT_ROUND" =~ Agent\ 2: ]]; then
+            ((ROUND_NUM++))
+            echo -e "\n\033[1;33mSummarizing Round $ROUND_NUM...\033[0m" >&2
+            
+            # Get updated summary
+            NEW_SUMMARY=$(get_summary "$CURRENT_ROUND" "$SUMMARY" "$ROUND_NUM")
+            
+            # Add new summary to total summary
+            if [ -z "$SUMMARY" ]; then
+                SUMMARY="$NEW_SUMMARY"
+            else
+                SUMMARY="${SUMMARY}\n\n${NEW_SUMMARY}"
+            fi
+            
+            # Display summary
+            echo -e "\033[1;33mROUND $ROUND_NUM:\033[0m\nIn this round,$NEW_SUMMARY" >&2
+            echo >&2
+            
+            # Reset current round
+            CURRENT_ROUND=""
+        fi
+    fi
+done 

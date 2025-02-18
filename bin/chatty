@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Get the script's directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Initialize conversation history with system prompt
+HISTORY=$(cat "${SCRIPT_DIR}/../.prompts/system.txt")
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to read system prompt" >&2
+    exit 1
+fi
+
+# Function to clean up on exit
+cleanup() {
+    # Move cursor to new line and show it
+    echo
+    tput cnorm
+}
+trap cleanup EXIT
+
+# Hide cursor for cleaner output
+tput civis
+
+while true; do
+    # Show prompt and get user input
+    printf "\033[1;36mYou:\033[0m " >&2
+    read -r USER_INPUT
+
+    # Check for exit command
+    if [[ "$USER_INPUT" =~ ^(exit|quit|q)$ ]]; then
+        break
+    fi
+
+    # Add user message to history
+    if [[ "$USER_INPUT" =~ ^/system ]]; then
+        # Remove /system prefix and add as system message
+        SYSTEM_MSG="${USER_INPUT#/system }"
+        HISTORY="${HISTORY%\\n}\n<|system|>${SYSTEM_MSG}\n<|assistant|>"
+    else
+        HISTORY="${HISTORY%\\n}\n<|user|>${USER_INPUT}\n<|assistant|>"
+    fi
+
+    # Show assistant indicator
+    printf "\033[1;35mAssistant:\033[0m " >&2
+
+    # Print response in real-time and add to history
+    targon "$HISTORY" | while IFS= read -r line || [ -n "$line" ]; do
+        printf "%s\n" "$line"
+        HISTORY="${HISTORY}${line}\n"
+    done
+
+    # Add newline for next iteration
+    echo >&2
+done

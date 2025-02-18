@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# Get the directory of the script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROMPT_FILE="$DIR/../.prompts/twitchchat.txt"
+
+# Initialize conversation history with the prompt
+PROMPT=$(cat "$PROMPT_FILE")
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to read prompt file" >&2
+    exit 1
+fi
+
+# Read input line by line and store complete input
+FULL_INPUT=""
+while IFS= read -r line || [ -n "$line" ]; do
+    # Echo the original line to maintain the stream
+    echo "$line"
+    FULL_INPUT="${FULL_INPUT}${line}\n"
+done
+
+# Prepare the example prepend message
+ASSISTANT_PREPEND="TheRedKnight: What are you guys thinking for how the discussion should evolve?\nNitroHead:"
+
+# Replace variables in the prompt
+FULL_PROMPT="${PROMPT/\${USER\}/$FULL_INPUT}"
+FULL_PROMPT="${FULL_PROMPT/\${ASSISTANT_PREPEND\}/$ASSISTANT_PREPEND}"
+
+# Add a visual separator
+echo -e "\n\033[1;35mTwitch Chat Reactions:\033[0m\n" >&2
+
+echo "$ASSISTANT_PREPEND" >&2
+
+
+# Process through targon and render newlines
+targon "$FULL_PROMPT" | sed 's/\\n/\n/g'

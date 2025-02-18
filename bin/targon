@@ -1,0 +1,124 @@
+#!/bin/bash
+
+# Default values
+MODEL="deepseek-ai/DeepSeek-V3"
+TEMP=0.7
+MAX_TOKENS=256
+TOP_P=0.1
+SHOW_PROMPT=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -M|--model)
+            MODEL="$2"
+            shift 2
+            ;;
+        -T|--temp)
+            if [[ $2 =~ ^[0-9]*\.?[0-9]+$ ]]; then
+                TEMP=$2
+                shift 2
+            else
+                echo "Error: Temperature must be a float value" >&2
+                exit 1
+            fi
+            ;;
+        -F|--file)
+            if [ ! -f "$2" ]; then
+                echo "Error: File '$2' not found" >&2
+                exit 1
+            fi
+            # Read file and remove trailing newlines
+            PROMPT="$(cat "$2" | perl -pe 'chomp if eof')"
+            if [ $? -ne 0 ]; then
+                echo "Error: Failed to read file '$2'" >&2
+                exit 1
+            fi
+            shift 2
+            ;;
+        --max_tokens)
+            if [[ $2 =~ ^[0-9]+$ ]]; then
+                MAX_TOKENS=$2
+                shift 2
+            else
+                echo "Error: Max tokens must be an integer" >&2
+                exit 1
+            fi
+            ;;
+        --top_p)
+            if [[ $2 =~ ^[0-9]*\.?[0-9]+$ ]]; then
+                TOP_P=$2
+                shift 2
+            else
+                echo "Error: Top P must be a float value" >&2
+                exit 1
+            fi
+            ;;
+        --show-prompt|--show)
+            SHOW_PROMPT=true
+            shift
+            ;;
+        -*)
+            echo "Error: Unknown option $1" >&2
+            exit 1
+            ;;
+        *)
+            # Everything else becomes part of the prompt
+            PROMPT="$*"
+            break
+            ;;
+    esac
+done
+
+if [ -z "$PROMPT" ]; then
+    echo "Error: No prompt provided" >&2
+    exit 1
+fi
+
+# Show prompt if flag is set (write to stderr so it doesn't get piped)
+if [ "$SHOW_PROMPT" = true ]; then
+    printf "Prompt from file:\n%s\n\nResponse:\n" "$PROMPT" >&2
+fi
+
+# Prepare the JSON payload
+JSON_PAYLOAD=$(cat << EOF
+{
+    "model": "$MODEL",
+    "stream": true,
+    "prompt": $(printf '%s' "$PROMPT" | awk 1 ORS='' | jq -R -s .),
+    "temperature": $TEMP,
+    "max_tokens": $MAX_TOKENS,
+    "stop": ["<|assistant|>", "<|user|>", "<|system|>"],
+    "top_p": $TOP_P,
+    "frequency_penalty": 0,
+    "presence_penalty": 0
+}
+EOF
+)
+
+# Debug: Show the JSON payload if DEBUG is set
+if [ "${DEBUG:-}" = "true" ]; then
+    echo "DEBUG: Sending payload:" >&2
+    echo "$JSON_PAYLOAD" | jq . >&2
+fi
+
+# Make the API call and process the stream
+curl -s https://api.targon.com/v1/completions \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TARGON_API_KEY" \
+    -N \
+    -d "$JSON_PAYLOAD" | while IFS= read -r line; do
+        # Skip empty lines and [DONE] message
+        [[ -z "$line" || "$line" == "data: [DONE]" ]] && continue
+        
+        # Extract the text content using grep and sed
+        if [[ "$line" =~ \"text\":\"([^\"]*)\" ]]; then
+            printf '%b' "${BASH_REMATCH[1]}"
+        fi
+done
+
+# Check if curl failed
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
+    echo "Error: API request failed" >&2
+    exit 1
+fi

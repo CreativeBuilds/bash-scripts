@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# Initialize an empty variable to store the complete text
+FULL_TEXT=""
+
+# Read all input preserving whitespace and newlines
+while IFS= read -r line || [ -n "$line" ]; do
+    FULL_TEXT="${FULL_TEXT}${line}"$'\n'
+done
+
+# Remove the final trailing newline and output
+printf '%s' "${FULL_TEXT%$'\n'}" 
