@@ -152,10 +152,13 @@ if [ -n "$OUT_FILE" ]; then
     if [ "$WIPE_FILE" = true ]; then
         : > "$OUT_FILE"
     fi
-    # Include prompt if flag is set
-    if [ "$INCLUDE_PROMPT" = true ]; then
-        # Convert \n to actual newlines in prompt
-        printf '%b' "$PROMPT" >> "$OUT_FILE"
+    # Include file prompt if -I flag is set
+    if [ "$INCLUDE_PROMPT" = true ] && [ -n "$FILE_PROMPT" ]; then
+        printf '%b' "$FILE_PROMPT" >> "$OUT_FILE"
+    fi 
+    # Always include additional prompt if provided
+    if [ -n "$ADDITIONAL_PROMPT" ]; then
+        printf '%b' "$ADDITIONAL_PROMPT" >> "$OUT_FILE"
     fi
 fi
 
