@@ -127,11 +127,12 @@ done
 
 # Combine prompts if both file and additional prompt are provided
 if [ -n "$FILE_PROMPT" ] && [ -n "$ADDITIONAL_PROMPT" ]; then
-    PROMPT="${FILE_PROMPT}${ADDITIONAL_PROMPT}"
+    # Use printf to properly handle newlines in both prompts
+    PROMPT="$(printf '%b%b' "$FILE_PROMPT" "$ADDITIONAL_PROMPT")"
 elif [ -n "$FILE_PROMPT" ]; then
-    PROMPT="$FILE_PROMPT"
+    PROMPT="$(printf '%b' "$FILE_PROMPT")"
 else
-    PROMPT="$ADDITIONAL_PROMPT"
+    PROMPT="$(printf '%b' "$ADDITIONAL_PROMPT")"
 fi
 
 if [ -z "$PROMPT" ]; then
@@ -155,7 +156,7 @@ if [ -n "$OUT_FILE" ]; then
     # Include file prompt if -I flag is set
     if [ "$INCLUDE_PROMPT" = true ] && [ -n "$FILE_PROMPT" ]; then
         printf '%b' "$FILE_PROMPT" >> "$OUT_FILE"
-    fi 
+    fi
     # Always include additional prompt if provided
     if [ -n "$ADDITIONAL_PROMPT" ]; then
         printf '%b' "$ADDITIONAL_PROMPT" >> "$OUT_FILE"
@@ -167,7 +168,7 @@ JSON_PAYLOAD=$(cat << EOF
 {
     "model": "$MODEL",
     "stream": true,
-    "prompt": $(printf '%s' "$PROMPT" | awk 1 ORS='' | jq -R -s .),
+    "prompt": $(printf '%b' "$PROMPT" | jq -R -s .),
     "temperature": $TEMP,
     "max_tokens": $MAX_TOKENS,
     "stop": ["<|assistant|>", "<|user|>", "<|system|>"],

@@ -3,24 +3,114 @@
 # Get the script's directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Default values
+EXCHANGES=""
+TOPIC=""
+AGENT1_FILE=""
+AGENT2_FILE=""
+AGENT1_OUT=""
+AGENT2_OUT=""
+INCLUDE_PROMPT1=false
+INCLUDE_PROMPT2=false
+WIPE_FILES=false
+
+# Initialize array for positional arguments
+declare -a POSITIONAL_ARGS=()
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -F1|--file1)
+            AGENT1_FILE="$2"
+            shift 2
+            ;;
+        -F2|--file2)
+            AGENT2_FILE="$2"
+            shift 2
+            ;;
+        -O1|--output1)
+            # If path is absolute, use it directly
+            if [[ "$2" = /* ]]; then
+                AGENT1_OUT="$2"
+            else
+                AGENT1_OUT="$PWD/$2"
+            fi
+            shift 2
+            ;;
+        -O2|--output2)
+            # If path is absolute, use it directly
+            if [[ "$2" = /* ]]; then
+                AGENT2_OUT="$2"
+            else
+                AGENT2_OUT="$PWD/$2"
+            fi
+            shift 2
+            ;;
+        -W|--wipe)
+            WIPE_FILES=true
+            shift
+            ;;
+        -I|--include-prompt)
+            INCLUDE_PROMPT1=true
+            INCLUDE_PROMPT2=true
+            shift
+            ;;
+        -I1|--include-prompt1)
+            INCLUDE_PROMPT1=true
+            shift
+            ;;
+        -I2|--include-prompt2)
+            INCLUDE_PROMPT2=true
+            shift
+            ;;
+        -*)
+            echo "Error: Unknown option $1" >&2
+            exit 1
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Restore positional arguments
+set -- "${POSITIONAL_ARGS[@]}"
+
+# Set exchanges and topic from positional arguments
+EXCHANGES="${1:-5}"
+TOPIC="${2:-the impact of artificial intelligence on society}"
+
+# Wipe output files if requested
+if [ "$WIPE_FILES" = true ]; then
+    [ -n "$AGENT1_OUT" ] && : > "$AGENT1_OUT"
+    [ -n "$AGENT2_OUT" ] && : > "$AGENT2_OUT"
+fi
+
 # Create temporary system prompts for each agent
 TMP_DIR=$(mktemp -d)
 AGENT1_PROMPT="${TMP_DIR}/agent1.txt"
 AGENT2_PROMPT="${TMP_DIR}/agent2.txt"
 
 # Create Agent 1's system prompt
-cat > "$AGENT1_PROMPT" << EOF
+if [ -n "$AGENT1_FILE" ]; then
+    cat "$AGENT1_FILE" > "$AGENT1_PROMPT"
+else
+    cat > "$AGENT1_PROMPT" << EOF
 <|system|>You are Agent 1, a friendly but opinionated AI. You love to debate topics but always remain respectful.
 Your responses should be brief and to the point. You should always ask a follow-up question to keep the conversation going.
-<|assistant|>
 EOF
+fi
 
 # Create Agent 2's system prompt
-cat > "$AGENT2_PROMPT" << EOF
+if [ -n "$AGENT2_FILE" ]; then
+    cat "$AGENT2_FILE" > "$AGENT2_PROMPT"
+else
+    cat > "$AGENT2_PROMPT" << EOF
 <|system|>You are Agent 2, a thoughtful and analytical AI. You enjoy exploring different perspectives.
 Your responses should be concise but insightful. Always engage with the previous point before adding your own view.
-<|assistant|>
 EOF
+fi
 
 # Function to clean up temp files
 cleanup() {
@@ -28,52 +118,106 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Initialize conversation history for both agents
-HISTORY1="$(cat "$AGENT1_PROMPT")"
-HISTORY2="$(cat "$AGENT2_PROMPT")"
-
-# Number of exchanges to have
-EXCHANGES=${1:-5}
-
-# Initial topic from command line or default
-TOPIC=${2:-"the impact of artificial intelligence on society"}
-
-# Start the conversation
-echo "Starting debate about: $TOPIC"
-echo
-
 # Function to clean response text
 clean_response() {
     # Remove escaped characters except newlines and normalize whitespace
     echo "$1" | sed 's/\\\([^n]\)/\1/g' | sed 's/\s\+/ /g'
 }
 
+# Function to safely append to history
+append_history() {
+    local history="$1"
+    local message="$2"
+    local role="$3"      # "user" or "assistant"
+    local next_role="$4" # "assistant" or empty
+    echo "$history" | tr -d '\n'
+    if [ -n "$next_role" ]; then
+        echo "\n<|${role}|>${message}\n<|${next_role}|>"
+    else
+        echo "\n<|${role}|>${message}"
+    fi
+}
+
+# Initialize conversation history for both agents
+HISTORY1="$(cat "$AGENT1_PROMPT" | tr -d '\n')"
+HISTORY2="$(cat "$AGENT2_PROMPT" | tr -d '\n')"
+
+# Initialize output files if needed
+if [ -n "$AGENT1_OUT" ]; then
+    if [ "$INCLUDE_PROMPT1" = true ]; then
+        # Write system prompt without trailing assistant tag
+        printf '<|system|>You are Agent 1, a friendly but opinionated AI. You love to debate topics but always remain respectful.' > "$AGENT1_OUT"
+    else
+        : > "$AGENT1_OUT"
+    fi
+fi
+
+if [ -n "$AGENT2_OUT" ]; then
+    if [ "$INCLUDE_PROMPT2" = true ]; then
+        # Write system prompt without trailing assistant tag
+        printf '<|system|>You are Agent 2, a thoughtful and analytical AI. You enjoy exploring different perspectives.' > "$AGENT2_OUT"
+    else
+        : > "$AGENT2_OUT"
+    fi
+fi
+
 # Agent 1 starts
-HISTORY1="${HISTORY1}\n<|user|>Let's discuss ${TOPIC}. Please start the conversation.\n<|assistant|>"
+HISTORY1=$(append_history "$HISTORY1" "Let's discuss ${TOPIC}. Please start the conversation." "user" "assistant")
+if [ "${DEBUG:-}" = "true" ]; then
+    echo "DEBUG History1: $HISTORY1" >&2
+fi
+
+# Get response
 RESPONSE1=$(targon "$HISTORY1")
 RESPONSE1=$(clean_response "$RESPONSE1")
 echo -e "\033[1;31mAgent 1:\033[0m $RESPONSE1"
-HISTORY1="${HISTORY1}${RESPONSE1}"
+
+# Write to file
+if [ -n "$AGENT1_OUT" ]; then
+    printf '\n<|user|>%s\n<|assistant|>%s' "Let's discuss ${TOPIC}. Please start the conversation." "$RESPONSE1" >> "$AGENT1_OUT"
+fi
 
 # Main conversation loop
 for ((i=1; i<=$EXCHANGES; i++)); do
     echo
     
     # Agent 2's turn
-    HISTORY2="${HISTORY2}\n<|user|>${RESPONSE1}\n<|assistant|>"
+    HISTORY2=$(append_history "$HISTORY2" "$RESPONSE1" "user" "assistant")
+    if [ "${DEBUG:-}" = "true" ]; then
+        echo "DEBUG History2: $HISTORY2" >&2
+    fi
+    
+    # Get response
     RESPONSE2=$(targon "$HISTORY2")
     RESPONSE2=$(clean_response "$RESPONSE2")
     echo -e "\033[1;34mAgent 2:\033[0m $RESPONSE2"
+    
+    # Write to file
+    if [ -n "$AGENT2_OUT" ]; then
+        printf '\n<|user|>%s\n<|assistant|>%s' "$RESPONSE1" "$RESPONSE2" >> "$AGENT2_OUT"
+    fi
+    
     HISTORY2="${HISTORY2}${RESPONSE2}"
     
     echo
     sleep 1
     
     # Agent 1's turn
-    HISTORY1="${HISTORY1}\n<|user|>${RESPONSE2}\n<|assistant|>"
+    HISTORY1=$(append_history "$HISTORY1" "$RESPONSE2" "user" "assistant")
+    if [ "${DEBUG:-}" = "true" ]; then
+        echo "DEBUG History1: $HISTORY1" >&2
+    fi
+    
+    # Get response
     RESPONSE1=$(targon "$HISTORY1")
     RESPONSE1=$(clean_response "$RESPONSE1")
     echo -e "\033[1;31mAgent 1:\033[0m $RESPONSE1"
+    
+    # Write to file
+    if [ -n "$AGENT1_OUT" ]; then
+        printf '\n<|user|>%s\n<|assistant|>%s' "$RESPONSE2" "$RESPONSE1" >> "$AGENT1_OUT"
+    fi
+    
     HISTORY1="${HISTORY1}${RESPONSE1}"
     
     sleep 1

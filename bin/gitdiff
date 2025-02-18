@@ -35,7 +35,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Combine prompt with diff and add assistant tag
-FULL_PROMPT="${PROMPT}${DIFF}\n<|assistant|>\`\`\`"
+FULL_PROMPT="${PROMPT}${DIFF}\n<|assistant|>\`\`\`diff\n"
 
 # Pass to targon
-targon "$FULL_PROMPT" | sed 's/```.*$//'
+targon -O gitdiff.txt -I -W "$FULL_PROMPT" | sed 's/```.*$//'
