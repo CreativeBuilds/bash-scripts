@@ -1,7 +1,18 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get the script's directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Parse command line arguments
+SAVE_FILE=false
+while getopts "s" opt; do
+    case $opt in
+        s) SAVE_FILE=true ;;
+        *) echo "Usage: $0 [-s]" >&2
+           echo "  -s: Save output to gitdiff.txt" >&2
+           exit 1 ;;
+    esac
+done
 
 # Get the git diff
 DIFF=$(git diff)
@@ -37,5 +48,9 @@ fi
 # Combine prompt with diff and add assistant tag
 FULL_PROMPT="${PROMPT}${DIFF}\n<|assistant|>\`\`\`diff\n"
 
-# Pass to targon
-targon -O gitdiff.txt -I -W "$FULL_PROMPT" | sed 's/```.*$//'
+# Pass to targon with optional file output
+if [ "$SAVE_FILE" = true ]; then
+    targon -O gitdiff.txt -I -W "$FULL_PROMPT" | sed 's/```.*$//'
+else
+    targon -I -W "$FULL_PROMPT" | sed 's/```.*$//'
+fi

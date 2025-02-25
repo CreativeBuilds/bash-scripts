@@ -2,7 +2,12 @@
 
 Remember to use the starting characters like feat, chore, fix, perf, etc.
 
-Summarize changes in around 50 characters or less
+Your response MUST follow this exact format:
+1. First line: Brief summary (50 chars or less) starting with type (feat/fix/etc)
+2. One blank line (\n\n)
+3. Detailed explanation wrapped at 72 characters, with proper line breaks
+4. Additional paragraphs must be separated by blank lines
+5. If using bullet points, use proper spacing and formatting
 
 More detailed explanatory text, if necessary. Wrap it to about 72
 characters or so. In some contexts, the first line is treated as the
@@ -24,9 +29,11 @@ Further paragraphs come after blank lines.
    by a single space, with blank lines in between, but conventions
    vary here
 
-If you use an issue tracker, put references to them at the bottom,
-like this:
+Example:
+feat: add -s flag to save git diff output
 
-Resolves: #123
-See also: #456, #789
+Add a new command line option -s to save the git diff output to a file.
+This provides flexibility for users who want to save the diff output
+for later reference or analysis. The default behavior remains unchanged
+for users who do not need to save the output.
 <|user|>
