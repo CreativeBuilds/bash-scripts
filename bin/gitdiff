@@ -47,6 +47,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Get deleted files
+DELETED_FILES=$(git ls-files --deleted)
+DELETED_CONTENT=""
+if [ -n "$DELETED_FILES" ]; then
+    DELETED_CONTENT="\n\nDeleted files:\n$DELETED_FILES"
+fi
+
 # Get untracked files that aren't gitignored
 UNTRACKED_FILES=$(git ls-files --others --exclude-standard)
 UNTRACKED_CONTENT=""
@@ -59,8 +66,8 @@ if [ -n "$UNTRACKED_FILES" ]; then
 fi
 
 # Check if we have any changes at all
-if [ -z "$DIFF" ] && [ -z "$UNTRACKED_CONTENT" ]; then
-    echo "No changes or new files found" >&2
+if [ -z "$DIFF" ] && [ -z "$UNTRACKED_CONTENT" ] && [ -z "$DELETED_CONTENT" ]; then
+    echo "No changes, new files, or deleted files found" >&2
     exit 0
 fi
 
@@ -72,8 +79,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Combine prompt with diff, untracked files and add assistant tag
-FULL_PROMPT="${PROMPT}\nGit Diff:\n${DIFF}\nUNTRACKED CONTENT:\n${UNTRACKED_CONTENT}\n<|assistant|>\`\`\`diff\n\n"
+# Combine prompt with diff, untracked files, deleted files and add assistant tag
+FULL_PROMPT="${PROMPT}\nGit Diff:\n${DIFF}\nUNTRACKED CONTENT:\n${UNTRACKED_CONTENT}\nDELETED CONTENT:\n${DELETED_CONTENT}\n<|assistant|>\`\`\`diff\n\n"
 
 # Pass to targon with optional file output
 if [ "$SAVE_FILE" = true ]; then
