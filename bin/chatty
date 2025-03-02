@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# chatty - An interactive CLI chat interface for the Targon AI API
+#
+# This script provides a command-line chat interface that maintains conversation history
+# and allows real-time interaction with the Targon AI API. It supports:
+# - Persistent conversation history using system prompts
+# - Real-time streaming of AI responses
+# - System message injection using /system prefix
+# - Clean exit handling with cursor management
+# - Color-coded interface for user/assistant messages
+# 
+# Usage:
+#   chatty                     Start an interactive chat session
+#   Type 'exit', 'quit' or 'q' to end the session
+#   Type '/system <message>'   To inject a system message
+
 # Get the script's directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

@@ -1,5 +1,31 @@
 #!/usr/bin/env bash
 
+# gitdiff - Generate AI-powered descriptions of git changes
+#
+# This script analyzes your git repository's current changes and uses AI to generate
+# a natural language description of the modifications. It works with both staged and
+# unstaged changes.
+#
+# Usage:
+#   gitdiff [-s]
+#
+# Options:
+#   -s    Save the AI-generated description to gitdiff.txt in the current directory
+#         By default, output is printed to stdout
+#
+# Examples:
+#   # Print changes to stdout
+#   gitdiff
+#
+#   # Save changes to gitdiff.txt
+#   gitdiff -s
+#
+# Notes:
+#   - Requires git to be installed and run from within a git repository
+#   - Uses the targon CLI tool to generate AI descriptions
+#   - Reads prompt template from .prompts/gitdiff.txt
+#   - Will exit with error if no changes are detected or if git commands fail
+
 # Get the script's directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -20,20 +46,21 @@ if [ $? -ne 0 ]; then
     echo "Error: Failed to get git diff" >&2
     exit 1
 fi
-if [ -z "$DIFF" ]; then
-    echo "Error: No git diff changes found" >&2
-    exit 1
+
+# Get untracked files that aren't gitignored
+UNTRACKED_FILES=$(git ls-files --others --exclude-standard)
+UNTRACKED_CONTENT=""
+if [ -n "$UNTRACKED_FILES" ]; then
+    while IFS= read -r file; do
+        if [ -f "$file" ]; then
+            UNTRACKED_CONTENT="${UNTRACKED_CONTENT}\n\nNew file: ${file}\n$(cat "$file")"
+        fi
+    done <<< "$UNTRACKED_FILES"
 fi
 
-# If no diff, check for untracked files
-if [ -z "$DIFF" ]; then
-    UNTRACKED=$(git ls-files --others --exclude-standard)
-    if [ -n "$UNTRACKED" ]; then
-        echo "Untracked files found:" >&2
-        echo "$UNTRACKED" >&2
-        exit 1
-    fi
-    echo "No changes to commit" >&2
+# Check if we have any changes at all
+if [ -z "$DIFF" ] && [ -z "$UNTRACKED_CONTENT" ]; then
+    echo "No changes or new files found" >&2
     exit 0
 fi
 
@@ -45,8 +72,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Combine prompt with diff and add assistant tag
-FULL_PROMPT="${PROMPT}${DIFF}\n<|assistant|>\`\`\`diff\n"
+# Combine prompt with diff, untracked files and add assistant tag
+FULL_PROMPT="${PROMPT}\nGit Diff:\n${DIFF}\nUNTRACKED CONTENT:\n${UNTRACKED_CONTENT}\n<|assistant|>\`\`\`diff\n\n"
 
 # Pass to targon with optional file output
 if [ "$SAVE_FILE" = true ]; then

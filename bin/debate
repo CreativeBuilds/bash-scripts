@@ -1,5 +1,37 @@
 #!/bin/bash
 
+# debate - An AI debate simulator using the Targon API
+#
+# This script simulates a debate between two AI agents on a given topic. Each agent
+# has its own personality and debate style, defined by system prompts. The debate
+# can be customized and the full conversation can be saved to files.
+#
+# Usage:
+#   debate [EXCHANGES] [TOPIC]
+#   debate 5 "the future of space exploration"
+#
+# Arguments:
+#   EXCHANGES     Number of back-and-forth exchanges (default: 5)
+#   TOPIC        The debate topic (default: "the impact of artificial intelligence on society")
+#
+# Options:
+#   -F1, --file1 <file>         Custom system prompt file for Agent 1
+#   -F2, --file2 <file>         Custom system prompt file for Agent 2
+#   -O1, --output1 <file>       Save Agent 1's conversation to file
+#   -O2, --output2 <file>       Save Agent 2's conversation to file
+#   -W, --wipe                  Clear output files before writing
+#   -I, --include-prompt        Include system prompts in both output files
+#   -I1, --include-prompt1      Include system prompt in Agent 1's output file
+#   -I2, --include-prompt2      Include system prompt in Agent 2's output file
+#
+# Environment Variables:
+#   DEBUG        Set to "true" to enable debug output
+#
+# Examples:
+#   debate 3 "climate change"
+#   debate --file1 custom1.txt --file2 custom2.txt 4 "ethics in AI"
+#   debate -O1 agent1.txt -O2 agent2.txt -W -I 5 "space exploration"
+
 # Get the script's directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

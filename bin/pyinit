@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# Python Project Initializer Script
+# --------------------------------
+# This script automates the setup of a new Python project environment by:
+#
+# 1. Creating a virtual environment (.venv) to isolate project dependencies
+# 2. Activating the virtual environment (for macOS/Unix systems)
+# 3. Creating a main Python file (defaults to index.py if no filename provided)
+# 4. Creating an empty requirements.txt for dependency management
+#
+# Usage:
+#   ./pyinit [filename]
+#   
+# Arguments:
+#   filename - Optional. The name of the main Python file to create (default: index.py)
+#
+# Example:
+#   ./pyinit app.py    # Creates project with app.py as main file
+#   ./pyinit           # Creates project with index.py as main file
+
+# Get the target filename, default to index.py if not provided
+TARGET_FILE="${1:-index.py}"
+
+# Create virtual environment
+python3 -m venv .venv
+
+# Create activation script for macOS
+echo "#!/bin/bash" > activate.sh
+echo "source .venv/bin/activate" >> activate.sh
+chmod +x activate.sh
+
+# Try to activate virtual environment for current script
+source .venv/bin/activate
+
+if [ $? -ne 0 ]; then
+    echo "Failed to activate virtual environment"; exit 1;
+fi
+
+# Create the target Python file if it doesn't exist
+if [ ! -f "$TARGET_FILE" ]; then
+    echo "# ${TARGET_FILE}" > "$TARGET_FILE"
+    echo "Created ${TARGET_FILE}"
+fi
+
+# Create empty requirements.txt if it doesn't exist
+if [ ! -f "requirements.txt" ]; then
+    touch requirements.txt
+    echo "Created requirements.txt"
+fi
+
+echo "Python environment initialized successfully!"
+echo "Virtual environment: .venv"
+echo "Main file: ${TARGET_FILE}"
+echo "Requirements file: requirements.txt"
+echo -e "\nTo activate the virtual environment, run:\n  source activate.sh"

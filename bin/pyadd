@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# pyadd - Python Package Installation and Requirements Management Script
+#
+# This script automates the process of installing Python packages and updating
+# the requirements.txt file. It performs the following tasks:
+#
+# 1. Validates that a package name was provided as an argument
+# 2. Installs the specified package using pip
+# 3. Verifies the installation was successful
+# 4. Gets the installed version of the package
+# 5. Updates requirements.txt by:
+#    - Removing any existing entry for the package
+#    - Adding the newly installed version
+#
+# Usage: pyadd <package_name>
+# Example: pyadd requests
+#
+# The script will fail with an error message if:
+# - No package name is provided
+# - The pip installation fails
+# - The installed version cannot be determined
+#
+# Note: requires pip and sed to be installed
+
+# Check if package name is provided
+if [ -z "$1" ]; then echo "Usage: pyadd <package_name>"; exit 1; fi
+
+# Install the package using pip
+pip install "$1"
+
+# Check if pip install was successful
+if [ $? -ne 0 ]; then echo "Failed to install $1"; exit 1; fi
+
+# Get the installed version
+VERSION=$(pip freeze | grep -i "^$1==")
+
+# Check if version was found
+if [ -z "$VERSION" ]; then echo "Could not find installed version of $1"; exit 1; fi
+
+# Add/Update package in requirements.txt
+if [ -f requirements.txt ]; then
+    # Remove existing entry if present
+    sed -i "/^$1==/d" requirements.txt
+fi
+
+# Append new version
+echo "$VERSION" >> requirements.txt
+echo "Added $VERSION to requirements.txt"
