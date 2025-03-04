@@ -39,6 +39,59 @@ gitdiff [-s]
 Options:
 - `-s`: Save output to gitdiff.txt
 
+### gitinit
+Initializes a git repository with a comprehensive .gitignore file and creates an initial commit.
+
+```bash
+gitinit [commit message]
+```
+
+Features:
+- Creates a comprehensive .gitignore file with common exclusions
+- Initializes a git repository if one doesn't exist
+- Adds all files and creates an initial commit
+- Uses "initial commit" as the default message if none provided
+
+### pyadd
+Automates Python package installation and requirements.txt management.
+
+```bash
+pyadd <package_name>
+```
+
+Features:
+- Installs the specified Python package using pip
+- Updates requirements.txt with the exact installed version
+- Removes any existing entries for the package before adding the new version
+- Provides clear error messages if installation fails
+
+### pyinit
+Sets up a new Python project environment with all necessary components.
+
+```bash
+pyinit [filename]
+```
+
+Features:
+- Creates a virtual environment (.venv) for isolated dependencies
+- Generates an activation script (activate.sh) for easy environment activation
+- Creates a main Python file (defaults to index.py if no filename provided)
+- Creates an empty requirements.txt file for dependency management
+- Provides clear instructions for next steps
+
+### twitchchatdebate
+Simulates Twitch chat reactions and discussions based on input content.
+
+```bash
+twitchchatdebate
+```
+
+Features:
+- Processes input content and generates realistic Twitch chat-style discussions
+- Uses predefined prompt templates for consistent output formatting
+- Renders chat messages with appropriate formatting and structure
+- Can be piped with other commands for complex workflows
+
 ### debate
 Creates an AI-powered debate between two agents on any topic.
 
@@ -87,6 +140,13 @@ Features:
 ### nostream
 Utility script for non-streaming AI responses.
 
+### checkin
+A utility script for checking in code changes with AI-assisted commit messages.
+
+```bash
+checkin
+```
+
 ## Command Chaining Examples
 
 These scripts can be chained together using Unix pipes for powerful workflows:
@@ -114,6 +174,16 @@ debate 3 "artificial intelligence ethics" | summarize > debate_summary.txt
 5. Interactive chat with summary generation:
 ```bash
 chatty | summarize > chat_insights.txt
+```
+
+6. Initialize a Python project and add dependencies:
+```bash
+pyinit app.py && pyadd requests
+```
+
+7. Generate Twitch-style chat reactions to content:
+```bash
+cat content.txt | twitchchatdebate
 ```
 
 ## Best Practices
